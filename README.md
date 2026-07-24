@@ -1,5 +1,6 @@
 # Codex 额度余量监视器
 ![image](example.png)
+
 跨平台的 Codex / OpenAI 额度桌面监视器。
 
 - **macOS**：原生桌面小组件（WidgetKit / SwiftUI），与截图样式一致。
