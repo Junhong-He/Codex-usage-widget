@@ -9,8 +9,8 @@
 打开 [`preview.html`](preview.html) 可直接看到设计预览。
 
 ## 下载
--Windows用户 推荐下载 Codex Usage Setup 1.0.4.exe，双击一路下一步安装。装完会在桌面/开始菜单出现图标，打开后输入 OpenAI API Key 就可使用。想绿色运行不下安装的，下载 Codex Usage 1.0.4.exe，双击就能打开。
--MacOS用户 目前 Release 里没有 macOS 的 .dmg，因为 macOS 应用必须签名才能在别人的电脑上运行。要自动构建 macOS 安装包，需要一个 Apple Developer 账号，仍在努力开发中
+- Windows用户 推荐下载 Codex Usage Setup 1.0.4.exe，双击一路下一步安装。装完会在桌面/开始菜单出现图标，打开后输入 OpenAI API Key 就可使用。想绿色运行不下安装的，下载 Codex Usage 1.0.4.exe，双击就能打开。
+- MacOS用户 目前 Release 里没有 macOS 的 .dmg，因为 macOS 应用必须签名才能在别人的电脑上运行。要自动构建 macOS 安装包，需要一个 Apple Developer 账号，仍在努力开发中
 
 ## 功能
 
