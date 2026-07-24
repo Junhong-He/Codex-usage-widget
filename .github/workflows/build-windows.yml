@@ -2,7 +2,6 @@ name: Build Windows
 
 on:
   push:
-    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -10,6 +9,8 @@ permissions:
 
 jobs:
   build:
+    # 仅在打 tag 时真正构建；推 main 等其它分支时跳过（避免 tag 过滤器偶发失效导致误触发）。
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: windows-latest
     defaults:
       run:

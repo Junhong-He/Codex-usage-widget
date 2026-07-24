@@ -2,8 +2,10 @@ name: Build macOS (.dmg)
 
 on:
   push:
-    tags: ['v*']
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 # ─────────────────────────────────────────────────────────────
 # 前置条件（必须，否则无法分发给他人）：
@@ -22,10 +24,9 @@ on:
 
 jobs:
   build:
+    # 仅在打 tag 时运行；未配 Apple 签名机密时跳过。
+    if: startsWith(github.ref, 'refs/tags/') && secrets.MAC_CERT_P12 != ''
     runs-on: macos-latest
-    # 没配置 Apple 签名机密时直接跳过（避免一直挂红）。
-    # 配好 MAC_CERT_P12 / MAC_CERT_PASSWORD / MAC_PROVISIONING_PROFILE / MAC_TEAM_ID 后，本 job 才会真正构建 .dmg。
-    if: ${{ secrets.MAC_CERT_P12 != '' }}
     steps:
       - uses: actions/checkout@v4
 
