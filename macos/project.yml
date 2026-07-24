@@ -1,0 +1,48 @@
+name: CodexUsageWidget
+targets:
+  CodexUsageWidget:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: CodexUsageWidget/App
+      - path: CodexUsageWidget/Shared
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.codexusage.widget
+      CODE_SIGN_ENTITLEMENTS: CodexUsageWidget/App/CodexUsageWidget.entitlements
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_CFBundleDisplayName: Codex Usage
+      INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+    info:
+      path: CodexUsageWidget/App/Info.plist
+      properties:
+        CFBundleDisplayName: Codex Usage
+        LSApplicationCategoryType: public.app-category.utilities
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+
+  CodexUsageWidgetExtension:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: CodexUsageWidget/Widget
+      - path: CodexUsageWidget/Shared
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.codexusage.widget.widget
+      CODE_SIGN_ENTITLEMENTS: CodexUsageWidget/Widget/CodexUsageWidgetExtension.entitlements
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_CFBundleDisplayName: Codex Usage
+      INFOPLIST_KEY_NSHumanReadableCopyright: ""
+    info:
+      path: CodexUsageWidget/Widget/Info.plist
+      properties:
+        CFBundleDisplayName: Codex Usage
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+schemes:
+  CodexUsageWidget:
+    build:
+      targets:
+        CodexUsageWidget: all
+        CodexUsageWidgetExtension: all

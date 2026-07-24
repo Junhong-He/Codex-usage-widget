@@ -1,0 +1,91 @@
+name: Build macOS (.dmg)
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+# ─────────────────────────────────────────────────────────────
+# 前置条件（必须，否则无法分发给他人）：
+#   1. 一个 Apple Developer 账号（$99/年），用于给 App + Widget Extension 签名，
+#      并把 App Group「group.com.codexusage.widget」写进描述文件。
+#   2. 仓库 Settings → Secrets and variables → Actions 里配置：
+#      - MAC_CERT_P12             : Developer ID Application 证书导出的 .p12（base64 编码）
+#      - MAC_CERT_PASSWORD         : .p12 的密码
+#      - MAC_PROVISIONING_PROFILE  : 包含 App Group 的 Mac 分发描述文件 .mobileprovision（base64）
+#      - MAC_TEAM_ID               : 你的 10 位 Team ID
+#   3. 把 macos/ExportOptions.plist 里的 teamID / profile 名称改成你自己的。
+#
+# 没有 Apple Developer 账号时：这个 workflow 跑不通，
+# 你只能在自己的 Mac 上本地用 xcodebuild 做「不签名」构建给自己用（小组件无法跨用户共享配置）。
+# ─────────────────────────────────────────────────────────────
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tooling
+        run: brew install xcodegen create-dmg
+
+      - name: Generate Xcode project
+        run: cd macos && xcodegen generate
+
+      - name: Import signing certificate
+        env:
+          CERT_P12: ${{ secrets.MAC_CERT_P12 }}
+          CERT_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+        run: |
+          echo "$CERT_P12" | base64 --decode > /tmp/cert.p12
+          security create-keychain -p "" build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import /tmp/cert.p12 -k build.keychain -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -d user -s build.keychain login.keychain-db
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+      - name: Install provisioning profile
+        env:
+          PROFILE: ${{ secrets.MAC_PROVISIONING_PROFILE }}
+        run: |
+          echo "$PROFILE" | base64 --decode > /tmp/profile.provisionprofile
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp /tmp/profile.provisionprofile "$HOME/Library/MobileDevice/Provisioning Profiles/"
+
+      - name: Build & archive
+        env:
+          TEAM: ${{ secrets.MAC_TEAM_ID }}
+        run: |
+          cd macos
+          xcodebuild -scheme CodexUsageWidget -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath build/CodexUsageWidget.xcarchive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM="$TEAM" \
+            archive
+
+      - name: Export .app
+        run: |
+          cd macos
+          xcodebuild -exportArchive \
+            -archivePath build/CodexUsageWidget.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist ExportOptions.plist
+
+      - name: Create .dmg
+        run: |
+          cd macos
+          create-dmg "Codex Usage.dmg" "build/export/CodexUsageWidget.app"
+
+      # 可选：公证（notarization）可消除「无法验证的开发者」警告，需要 App Store Connect API Key 机密
+      # - name: Notarize
+      #   run: |
+      #     xcrun notarytool submit macos/Codex\ Usage.dmg \
+      #       --keychain-profile "aci" --wait
+
+      - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: macos/Codex Usage.dmg

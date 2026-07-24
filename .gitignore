@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+DerivedData/
+*.xcodeproj
+*.xcworkspace
+*.xcarchive
+
+# Local config / secrets
+.env
+*.local
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.dmg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# WorkBuddy internal memory (not project source)
+.workbuddy/

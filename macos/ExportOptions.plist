@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>developer-id</string>
+    <key>signingStyle</key>
+    <string>manual</string>
+    <!-- 把 YOUR_TEAM_ID 换成你的 10 位 Apple Team ID -->
+    <key>teamID</key>
+    <string>YOUR_TEAM_ID</string>
+    <key>signingCertificate</key>
+    <string>Developer ID Application</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <!-- 值改成你描述文件里显示的名字 -->
+        <key>com.codexusage.widget</key>
+        <string>CodexUsageWidget Distribution</string>
+        <key>com.codexusage.widget.widget</key>
+        <string>CodexUsageWidgetWidget Distribution</string>
+    </dict>
+</dict>
+</plist>

@@ -1,0 +1,7 @@
+{
+  "api_key": "sk-your-openai-api-key",
+  "base_url": "https://api.openai.com",
+  "monthly_quota": 150000000,
+  "price_per_1m_tokens": 5.0,
+  "provider": "openai-usage"
+}

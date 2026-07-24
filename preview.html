@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Codex Usage Widget Preview</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, sans-serif;
+      background: #b58d6a url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.08'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+
+    .scene {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 40px;
+    }
+
+    .hint {
+      color: rgba(255,255,255,0.9);
+      font-size: 14px;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+
+    /* Widget styles */
+    .widget {
+      width: 380px;
+      height: 220px;
+      background: rgba(28, 28, 30, 0.96);
+      border-radius: 26px;
+      padding: 22px;
+      color: #fff;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .widget-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .widget-title {
+      font-size: 19px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      margin-bottom: 7px;
+    }
+
+    .update-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #8e8e93;
+    }
+
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #30d158;
+      box-shadow: 0 0 6px rgba(48, 209, 88, 0.6);
+    }
+
+    .widget-actions {
+      display: flex; gap: 9px;
+    }
+
+    .icon-btn {
+      width: 32px; height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: color 0.15s ease;
+    }
+
+    .icon-btn svg { width: 15px; height: 15px; }
+
+    .icon-btn.spinning svg {
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .widget-body {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin: 12px 0;
+    }
+
+    .token-count {
+      font-size: 38px;
+      font-weight: 700;
+      letter-spacing: -0.8px;
+      line-height: 1;
+    }
+
+    .token-label {
+      font-size: 13px;
+      color: #8e8e93;
+      margin-top: 4px;
+    }
+
+    .activity-dots {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 38px;
+      padding-bottom: 2px;
+    }
+
+    .activity-dots .bar {
+      width: 6px;
+      border-radius: 3px;
+      background: rgba(48, 209, 88, 0.35);
+      transition: height 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.3s ease;
+      flex-shrink: 0;
+    }
+
+    .activity-dots .bar.today {
+      background: #30d158;
+      box-shadow: 0 0 6px rgba(48, 209, 88, 0.5);
+    }
+
+    .widget-footer {
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+
+    .progress-row {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+    }
+
+    .progress-label {
+      width: 42px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #aeaeb2;
+    }
+
+    .progress-track {
+      flex: 1;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #30d158, #64e888);
+      border-radius: 4px;
+      transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .progress-percent {
+      width: 42px;
+      text-align: right;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .progress-remaining {
+      width: 28px;
+      text-align: right;
+      font-size: 12px;
+      color: #8e8e93;
+    }
+
+    .platform-badges {
+      display: flex;
+      gap: 12px;
+    }
+
+    .badge {
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: rgba(0,0,0,0.35);
+      color: #fff;
+      font-size: 12px;
+      backdrop-filter: blur(8px);
+    }
+  </style>
+</head>
+<body>
+  <div class="scene">
+    <div class="platform-badges">
+      <span class="badge">macOS WidgetKit</span>
+      <span class="badge">Windows Electron</span>
+    </div>
+
+    <div class="widget" id="widget">
+      <header class="widget-header">
+        <div>
+          <h1 class="widget-title">Codex Usage</h1>
+          <div class="update-status">
+            <span class="status-dot"></span>
+            <span id="updateText">Updated just now</span>
+          </div>
+        </div>
+        <div class="widget-actions">
+          <button class="icon-btn" id="refreshBtn" aria-label="Refresh">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M16 21h5v-5" />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <main class="widget-body">
+        <div>
+          <div class="token-count" id="tokenCount">4.27M</div>
+          <div class="token-label">tokens today</div>
+        </div>
+        <div class="activity-dots" id="activityDots"></div>
+      </main>
+
+      <footer class="widget-footer">
+        <div class="progress-row">
+          <span class="progress-label">Day</span>
+          <div class="progress-track"><div class="progress-fill" id="dayFill"></div></div>
+          <span class="progress-percent" id="dayPercent">92%</span>
+          <span class="progress-remaining" id="dayRemaining">4h</span>
+        </div>
+        <div class="progress-row">
+          <span class="progress-label">Week</span>
+          <div class="progress-track"><div class="progress-fill" id="weekFill"></div></div>
+          <span class="progress-percent" id="weekPercent">39%</span>
+          <span class="progress-remaining" id="weekRemaining">5d</span>
+        </div>
+      </footer>
+    </div>
+
+    <div class="hint">这是设计预览。Windows 与 macOS 版本分别位于 windows/ 与 macos/ 目录。</div>
+  </div>
+
+  <script>
+    const monthlyQuota = 150_000_000;
+    const dailyLimit = Math.round(monthlyQuota / 30);
+    const weeklyLimit = Math.round(monthlyQuota / 4);
+
+    function formatTokens(n) {
+      if (n >= 1_000_000) return (n / 1_000_000).toFixed(2) + 'M';
+      if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
+      return String(n);
+    }
+
+    function formatUpdatedAt(date) {
+      const h = String(date.getHours()).padStart(2, '0');
+      const m = String(date.getMinutes()).padStart(2, '0');
+      return `Updated at ${h}:${m}`;
+    }
+
+    function formatRemaining(tokens, isDay) {
+      if (isDay) {
+        const hours = Math.max(1, Math.round(tokens / 500_000));
+        return `${hours}h`;
+      }
+      const days = Math.max(1, Math.round(tokens / 2_000_000));
+      return `${days}d`;
+    }
+
+    function renderBars(recentDays) {
+      const max = Math.max(...recentDays, 1);
+      const container = document.getElementById('activityDots');
+      let html = '';
+      recentDays.forEach((value, i) => {
+        const isToday = i === recentDays.length - 1;
+        const height = Math.max(12, (value / max) * 100);
+        html += `<div class="bar ${isToday ? 'today' : ''}" style="height:${height}%"></div>`;
+      });
+      container.innerHTML = html;
+    }
+
+    function render(snapshot) {
+      document.getElementById('tokenCount').textContent = formatTokens(snapshot.tokens_today);
+      document.getElementById('updateText').textContent = formatUpdatedAt(new Date(snapshot.updated_at));
+      document.getElementById('dayFill').style.width = snapshot.day_percent + '%';
+      document.getElementById('dayPercent').textContent = Math.round(snapshot.day_percent) + '%';
+      document.getElementById('dayRemaining').textContent = snapshot.day_remaining_label;
+      document.getElementById('weekFill').style.width = snapshot.week_percent + '%';
+      document.getElementById('weekPercent').textContent = Math.round(snapshot.week_percent) + '%';
+      document.getElementById('weekRemaining').textContent = snapshot.week_remaining_label;
+      renderBars(snapshot.recent_days);
+    }
+
+    function generateSnapshot() {
+      const dayUsage = 0.5 + Math.random() * 0.5;
+      const weekUsage = 0.2 + Math.random() * 0.6;
+      const tokensToday = Math.round(dailyLimit * dayUsage);
+      const tokensWeek = Math.round(weeklyLimit * weekUsage);
+      const recentDays = [];
+      for (let i = 0; i < 13; i++) {
+        recentDays.push(tokensToday * (0.2 + Math.random() * 1.0));
+      }
+      recentDays.push(tokensToday);
+      return {
+        updated_at: new Date().toISOString(),
+        tokens_today: tokensToday,
+        tokens_week: tokensWeek,
+        monthly_quota: monthlyQuota,
+        daily_limit: dailyLimit,
+        weekly_limit: weeklyLimit,
+        day_percent: dayUsage * 100,
+        week_percent: weekUsage * 100,
+        day_remaining_label: formatRemaining(dailyLimit - tokensToday, true),
+        week_remaining_label: formatRemaining(weeklyLimit - tokensWeek, false),
+        recent_days: recentDays,
+        quota_source: 'manual',
+      };
+    }
+
+    const refreshBtn = document.getElementById('refreshBtn');
+    refreshBtn.addEventListener('click', () => {
+      refreshBtn.classList.add('spinning');
+      setTimeout(() => refreshBtn.classList.remove('spinning'), 600);
+      render(generateSnapshot());
+    });
+
+    render(generateSnapshot());
+  </script>
+</body>
+</html>

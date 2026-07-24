@@ -1,0 +1,15 @@
+{
+  "name": "codex-quota-core",
+  "version": "1.0.0",
+  "description": "Shared Codex quota data model and fetcher.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  },
+  "dependencies": {}
+}
