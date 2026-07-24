@@ -122,9 +122,11 @@ const NORMAL_WIDTH = 380;
 const NORMAL_HEIGHT = 230;
 const SETTINGS_WIDTH = 380;
 const SETTINGS_HEIGHT = 380;
+let preSettingsSize = [NORMAL_WIDTH, NORMAL_HEIGHT];
 
 async function openSettings() {
   if (!api) return;
+  if (api.getWindowSize) preSettingsSize = await api.getWindowSize();
   const config = await api.getConfig();
   els.apiKeyInput.value = config.api_key || '';
   els.providerInput.value = config.provider || 'mock';
@@ -136,7 +138,9 @@ async function openSettings() {
 
 function closeSettings() {
   els.settingsPanel.classList.remove('open');
-  if (api) api.resizeWindow(NORMAL_WIDTH, NORMAL_HEIGHT);
+  if (api && api.resizeWindow) {
+    api.resizeWindow(preSettingsSize[0], preSettingsSize[1]);
+  }
 }
 
 async function saveSettings() {
@@ -156,14 +160,37 @@ async function saveSettings() {
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
 
+// Resize support via the bottom-right handle
+let isResizing = false;
+let resizeLast = { x: 0, y: 0 };
+const resizeHandle = els.widget.querySelector('.resize-handle');
+
+if (resizeHandle) {
+  resizeHandle.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    resizeLast.x = e.clientX;
+    resizeLast.y = e.clientY;
+    e.preventDefault();
+    e.stopPropagation();
+  });
+}
+
 els.widget.addEventListener('mousedown', (e) => {
-  if (e.target.closest('.icon-btn') || e.target.closest('.settings-panel')) return;
+  if (e.target.closest('.icon-btn') || e.target.closest('.settings-panel') || e.target.closest('.resize-handle')) return;
   isDragging = true;
   dragOffset.x = e.clientX;
   dragOffset.y = e.clientY;
 });
 
 document.addEventListener('mousemove', (e) => {
+  if (isResizing) {
+    const dx = e.clientX - resizeLast.x;
+    const dy = e.clientY - resizeLast.y;
+    resizeLast.x = e.clientX;
+    resizeLast.y = e.clientY;
+    if (api && api.resizeWindowDelta) api.resizeWindowDelta(dx, dy);
+    return;
+  }
   if (!isDragging) return;
   const dx = e.clientX - dragOffset.x;
   const dy = e.clientY - dragOffset.y;
@@ -176,6 +203,7 @@ document.addEventListener('mousemove', (e) => {
 
 document.addEventListener('mouseup', () => {
   isDragging = false;
+  isResizing = false;
 });
 
 // Event listeners

@@ -193,7 +193,7 @@ function createWindow() {
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
-    resizable: false,
+    resizable: true,
     maximizable: false,
     minimizable: false,
     closable: true,
@@ -204,6 +204,7 @@ function createWindow() {
     },
   });
 
+  mainWindow.setMinimumSize(300, 180);
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
 
   // Optional: open DevTools during development
@@ -237,4 +238,16 @@ ipcMain.handle('resize-window', (_event, width, height) => {
   if (mainWindow) {
     mainWindow.setSize(width, height);
   }
+});
+
+ipcMain.handle('resize-window-delta', (_event, dw, dh) => {
+  if (mainWindow) {
+    const [w, h] = mainWindow.getSize();
+    mainWindow.setSize(Math.max(300, w + dw), Math.max(180, h + dh));
+  }
+});
+
+ipcMain.handle('get-window-size', () => {
+  if (mainWindow) return mainWindow.getSize();
+  return [380, 230];
 });

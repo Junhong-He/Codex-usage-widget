@@ -7,4 +7,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   configDir: () => ipcRenderer.invoke('config-dir'),
   moveWindow: (dx, dy) => ipcRenderer.invoke('move-window', dx, dy),
   resizeWindow: (width, height) => ipcRenderer.invoke('resize-window', width, height),
+  resizeWindowDelta: (dw, dh) => ipcRenderer.invoke('resize-window-delta', dw, dh),
+  getWindowSize: () => ipcRenderer.invoke('get-window-size'),
 });
