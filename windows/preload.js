@@ -6,4 +6,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setConfig: (config) => ipcRenderer.invoke('set-config', config),
   configDir: () => ipcRenderer.invoke('config-dir'),
   moveWindow: (dx, dy) => ipcRenderer.invoke('move-window', dx, dy),
+  resizeWindow: (width, height) => ipcRenderer.invoke('resize-window', width, height),
 });

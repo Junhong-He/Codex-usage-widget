@@ -232,3 +232,9 @@ ipcMain.handle('move-window', (_event, dx, dy) => {
     mainWindow.setPosition(x + dx, y + dy);
   }
 });
+
+ipcMain.handle('resize-window', (_event, width, height) => {
+  if (mainWindow) {
+    mainWindow.setSize(width, height);
+  }
+});

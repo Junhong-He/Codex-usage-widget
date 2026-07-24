@@ -118,6 +118,11 @@ async function refresh() {
   }
 }
 
+const NORMAL_WIDTH = 380;
+const NORMAL_HEIGHT = 230;
+const SETTINGS_WIDTH = 380;
+const SETTINGS_HEIGHT = 380;
+
 async function openSettings() {
   if (!api) return;
   const config = await api.getConfig();
@@ -125,11 +130,13 @@ async function openSettings() {
   els.providerInput.value = config.provider || 'mock';
   els.pricePer1mInput.value = config.price_per_1m_tokens ?? 5.0;
   els.monthlyQuotaInput.value = config.monthly_quota || 150000000;
+  api.resizeWindow(SETTINGS_WIDTH, SETTINGS_HEIGHT);
   els.settingsPanel.classList.add('open');
 }
 
 function closeSettings() {
   els.settingsPanel.classList.remove('open');
+  if (api) api.resizeWindow(NORMAL_WIDTH, NORMAL_HEIGHT);
 }
 
 async function saveSettings() {
