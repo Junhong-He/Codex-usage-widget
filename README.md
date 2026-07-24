@@ -16,6 +16,10 @@
 - 刷新按钮
 - 右键 / 设置面板配置 API Key 与月度额度
 
+## 关于API key
+A. 你有 OpenAI Platform 的 API key（platform.openai.com 生成的 sk- 密钥）→ 输入 API key 本来就是正确方式，我可以帮你加"自动读 Codex 凭证"按钮，以后点一下就行。
+B. 你只用 ChatGPT Plus/Pro 订阅，没有 API key → 那 OpenAI 没给第三方查额度的接口，我们的工具目前查不到你的真实额度，只能在 ChatGPT 网页里看。这种情况你需要去 platform.openai.com 免费生成一个 API key 才能用这个工具（生成 key 不影响你的订阅）。
+
 ## 目录
 
 ```
