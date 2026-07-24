@@ -1,6 +1,6 @@
 name: Build Windows
 
-"on":
+on:
   push:
     tags:
       - 'v*'
@@ -36,4 +36,4 @@ jobs:
         with:
           files: |
             windows/dist/*.exe
-        fail_on_unmatched_files: false
+          fail_on_unmatched_files: false

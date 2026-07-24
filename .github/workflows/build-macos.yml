@@ -1,9 +1,14 @@
 name: Build macOS (.dmg)
 
-"on":
-  push:
-    tags:
-      - 'v*'
+# 当前未配置 Apple 签名机密，为避免推送 tag 时失败通知，默认只接受手动触发。
+# 后续配好 MAC_CERT_P12 / MAC_CERT_PASSWORD / MAC_PROVISIONING_PROFILE / MAC_TEAM_ID
+# 后，把下面 `on:` 改成：
+# on:
+#   push:
+#     tags:
+#       - 'v*'
+#   workflow_dispatch:
+on:
   workflow_dispatch:
 
 permissions:
@@ -11,7 +16,6 @@ permissions:
 
 jobs:
   build:
-    if: secrets.MAC_CERT_P12 != ''
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
