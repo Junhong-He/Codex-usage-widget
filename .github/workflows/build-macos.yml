@@ -1,31 +1,17 @@
 name: Build macOS (.dmg)
 
-on:
+"on":
   push:
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
   contents: write
 
-# ─────────────────────────────────────────────────────────────
-# 前置条件（必须，否则无法分发给他人）：
-#   1. 一个 Apple Developer 账号（$99/年），用于给 App + Widget Extension 签名，
-#      并把 App Group「group.com.codexusage.widget」写进描述文件。
-#   2. 仓库 Settings → Secrets and variables → Actions 里配置：
-#      - MAC_CERT_P12             : Developer ID Application 证书导出的 .p12（base64 编码）
-#      - MAC_CERT_PASSWORD         : .p12 的密码
-#      - MAC_PROVISIONING_PROFILE  : 包含 App Group 的 Mac 分发描述文件 .mobileprovision（base64）
-#      - MAC_TEAM_ID               : 你的 10 位 Team ID
-#   3. 把 macos/ExportOptions.plist 里的 teamID / profile 名称改成你自己的。
-#
-# 没有 Apple Developer 账号时：这个 workflow 跑不通，
-# 你只能在自己的 Mac 上本地用 xcodebuild 做「不签名」构建给自己用（小组件无法跨用户共享配置）。
-# ─────────────────────────────────────────────────────────────
-
 jobs:
   build:
-    # 仅在打 tag 时运行；未配 Apple 签名机密时跳过。
-    if: startsWith(github.ref, 'refs/tags/') && secrets.MAC_CERT_P12 != ''
+    if: secrets.MAC_CERT_P12 != ''
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -56,7 +42,7 @@ jobs:
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           cp /tmp/profile.provisionprofile "$HOME/Library/MobileDevice/Provisioning Profiles/"
 
-      - name: Build & archive
+      - name: Build and archive
         env:
           TEAM: ${{ secrets.MAC_TEAM_ID }}
         run: |
@@ -69,7 +55,7 @@ jobs:
             DEVELOPMENT_TEAM="$TEAM" \
             archive
 
-      - name: Export .app
+      - name: Export app
         run: |
           cd macos
           xcodebuild -exportArchive \
@@ -77,19 +63,12 @@ jobs:
             -exportPath build/export \
             -exportOptionsPlist ExportOptions.plist
 
-      - name: Create .dmg
+      - name: Create dmg
         run: |
           cd macos
           create-dmg "Codex Usage.dmg" "build/export/CodexUsageWidget.app"
 
-      # 可选：公证（notarization）可消除「无法验证的开发者」警告，需要 App Store Connect API Key 机密
-      # - name: Notarize
-      #   run: |
-      #     xcrun notarytool submit macos/Codex\ Usage.dmg \
-      #       --keychain-profile "aci" --wait
-
       - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: macos/Codex Usage.dmg
