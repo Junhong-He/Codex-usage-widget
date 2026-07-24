@@ -193,7 +193,7 @@ function createWindow() {
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
-    resizable: true,
+    resizable: false,
     maximizable: false,
     minimizable: false,
     closable: true,
@@ -240,11 +240,23 @@ ipcMain.handle('resize-window', (_event, width, height) => {
   }
 });
 
-ipcMain.handle('resize-window-delta', (_event, dw, dh) => {
-  if (mainWindow) {
-    const [w, h] = mainWindow.getSize();
-    mainWindow.setSize(Math.max(300, w + dw), Math.max(180, h + dh));
+ipcMain.handle('resize-window-delta', (_event, anchor, dw, dh) => {
+  if (!mainWindow) return;
+  const [x, y] = mainWindow.getPosition();
+  const [w, h] = mainWindow.getSize();
+  const minW = 300;
+  const minH = 180;
+  let newW, newH, newX = x, newY = y;
+  if (anchor === 'tl') {
+    newW = Math.max(minW, w - dw);
+    newH = Math.max(minH, h - dh);
+    newX = x + (w - newW);
+    newY = y + (h - newH);
+  } else {
+    newW = Math.max(minW, w + dw);
+    newH = Math.max(minH, h + dh);
   }
+  mainWindow.setBounds({ x: newX, y: newY, width: newW, height: newH });
 });
 
 ipcMain.handle('get-window-size', () => {

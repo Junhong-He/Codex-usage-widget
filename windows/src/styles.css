@@ -281,8 +281,6 @@ body {
 
 .resize-handle {
   position: absolute;
-  bottom: 0;
-  right: 0;
   width: 20px;
   height: 20px;
   cursor: nwse-resize;
@@ -294,16 +292,37 @@ body {
 .resize-handle::after {
   content: '';
   position: absolute;
-  bottom: 5px;
-  right: 5px;
   width: 9px;
   height: 9px;
-  border-right: 2px solid rgba(255, 255, 255, 0.35);
-  border-bottom: 2px solid rgba(255, 255, 255, 0.35);
-  border-bottom-right-radius: 3px;
+  border-color: rgba(255, 255, 255, 0.35);
+  border-style: solid;
   transition: border-color 0.15s ease;
 }
 
 .resize-handle:hover::after {
   border-color: rgba(255, 255, 255, 0.7);
+}
+
+.resize-handle-br {
+  bottom: 0;
+  right: 0;
+}
+
+.resize-handle-br::after {
+  bottom: 5px;
+  right: 5px;
+  border-width: 0 2px 2px 0;
+  border-bottom-right-radius: 3px;
+}
+
+.resize-handle-tl {
+  top: 0;
+  left: 0;
+}
+
+.resize-handle-tl::after {
+  top: 5px;
+  left: 5px;
+  border-width: 2px 0 0 2px;
+  border-top-left-radius: 3px;
 }

@@ -160,20 +160,22 @@ async function saveSettings() {
 let isDragging = false;
 let dragOffset = { x: 0, y: 0 };
 
-// Resize support via the bottom-right handle
+// Resize support via the top-left and bottom-right corner handles
 let isResizing = false;
 let resizeLast = { x: 0, y: 0 };
-const resizeHandle = els.widget.querySelector('.resize-handle');
+let resizeAnchor = 'br';
+const resizeHandles = els.widget.querySelectorAll('.resize-handle');
 
-if (resizeHandle) {
-  resizeHandle.addEventListener('mousedown', (e) => {
+resizeHandles.forEach((handle) => {
+  handle.addEventListener('mousedown', (e) => {
     isResizing = true;
+    resizeAnchor = handle.id === 'resizeHandleTL' ? 'tl' : 'br';
     resizeLast.x = e.clientX;
     resizeLast.y = e.clientY;
     e.preventDefault();
     e.stopPropagation();
   });
-}
+});
 
 els.widget.addEventListener('mousedown', (e) => {
   if (e.target.closest('.icon-btn') || e.target.closest('.settings-panel') || e.target.closest('.resize-handle')) return;
@@ -188,7 +190,7 @@ document.addEventListener('mousemove', (e) => {
     const dy = e.clientY - resizeLast.y;
     resizeLast.x = e.clientX;
     resizeLast.y = e.clientY;
-    if (api && api.resizeWindowDelta) api.resizeWindowDelta(dx, dy);
+    if (api && api.resizeWindowDelta) api.resizeWindowDelta(resizeAnchor, dx, dy);
     return;
   }
   if (!isDragging) return;
