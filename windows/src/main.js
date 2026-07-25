@@ -129,7 +129,8 @@ async function openSettings() {
   if (!api) return;
   if (api.getWindowSize) preSettingsSize = await api.getWindowSize();
   const config = await api.getConfig();
-  els.apiKeyInput.value = config.api_key || '';
+  // Do not pre-fill the real API key for privacy; the user can type it when needed.
+  els.apiKeyInput.value = '';
   els.providerInput.value = config.provider || 'mock';
   els.pricePer1mInput.value = config.price_per_1m_tokens ?? 5.0;
   els.monthlyQuotaInput.value = config.monthly_quota || 150000000;
@@ -147,8 +148,11 @@ function closeSettings() {
 
 async function saveSettings() {
   if (!api) return;
+  const current = await api.getConfig();
+  const apiKey = els.apiKeyInput.value.trim();
   const config = {
-    api_key: els.apiKeyInput.value.trim(),
+    // Keep the existing key if the user left the field empty (e.g. only changed quota).
+    api_key: apiKey || current.api_key || '',
     provider: els.providerInput.value,
     price_per_1m_tokens: Number(els.pricePer1mInput.value),
     monthly_quota: Number(els.monthlyQuotaInput.value),

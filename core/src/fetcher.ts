@@ -21,42 +21,55 @@ function dateDaysAgo(days: number): string {
   return formatDate(d);
 }
 
-async function fetchOpenAIUsage(config: FetcherConfig): Promise<CodexUsageSnapshot> {
-  const baseUrl = (config.baseUrl || "https://api.openai.com").replace(/\/$/, "");
-  const today = formatDate(new Date());
-  const startDate = dateDaysAgo(13);
-
-  // The subscription/hard-limit endpoint only accepts a browser session key,
-  // not an API secret key, so we fall back to the configured monthly quota.
-  const { monthlyQuota, quotaSource } = await fetchMonthlyQuota(config);
-
-  // The official /v1/usage endpoint accepts an API secret key. It returns daily
-  // usage in USD cents ({ object: "usage", data: [{ date, usage }] }).
-  const url = `${baseUrl}/v1/usage?start_date=${startDate}&end_date=${today}`;
-
+async function fetchUsageForDate(baseUrl: string, apiKey: string, date: string): Promise<number> {
+  const url = `${baseUrl}/v1/usage?date=${date}`;
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${config.apiKey}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
   });
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(`Failed to fetch usage: ${response.status} ${response.statusText} ${text}`);
+    throw new Error(`Failed to fetch usage for ${date}: ${response.status} ${response.statusText} ${text}`);
   }
 
   const data: any = await response.json();
-  const pricePerToken = (config.pricePer1mTokens || 5.0) / 1_000_000;
-  const dayMap: Record<string, number> = {};
+  // Some endpoints return a single object { date, usage }, others wrap it as { data: [...] }.
+  if (data && typeof data.usage === "number") {
+    return Number(data.usage);
+  }
   if (Array.isArray(data.data)) {
-    data.data.forEach((item: any) => {
-      const date = item.date || formatDate(new Date((item.aggregation_timestamp || 0) * 1000));
-      const cents = Number(item.usage || 0); // usage is in USD cents
-      dayMap[date] = (dayMap[date] || 0) + cents;
-    });
+    return data.data.reduce((sum: number, item: any) => sum + Number(item.usage || 0), 0);
+  }
+  return 0;
+}
+
+async function fetchOpenAIUsage(config: FetcherConfig): Promise<CodexUsageSnapshot> {
+  const baseUrl = (config.baseUrl || "https://api.openai.com").replace(/\/$/, "");
+  const today = formatDate(new Date());
+
+  // The subscription/hard-limit endpoint only accepts a browser session key,
+  // not an API secret key, so we fall back to the configured monthly quota.
+  const { monthlyQuota, quotaSource } = await fetchMonthlyQuota(config);
+
+  // Query each day individually. Many /v1/usage-compatible endpoints (including
+  // some third-party proxies) only accept a single "date" parameter, not a range.
+  const dates: string[] = [];
+  for (let i = 13; i >= 0; i--) {
+    dates.push(dateDaysAgo(i));
   }
 
+  const dayMap: Record<string, number> = {};
+  const results = await Promise.all(
+    dates.map((date) => fetchUsageForDate(baseUrl, config.apiKey, date).then((cents) => ({ date, cents })))
+  );
+  results.forEach(({ date, cents }) => {
+    dayMap[date] = cents;
+  });
+
+  const pricePerToken = (config.pricePer1mTokens || 5.0) / 1_000_000;
   const centsToday = dayMap[today] || 0;
   const tokensToday = Math.round((centsToday / 100) / pricePerToken);
 
