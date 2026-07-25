@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen, session } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, session, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -32,7 +32,7 @@ function logToFile(...args) {
   }
 }
 
-// Configure the network proxy for Electron's fetch / Electron's requests.
+// Configure the network proxy for Electron's network stack (net.fetch honors this).
 function applyProxy(config) {
   try {
     const url = (config.proxy_url || '').trim();
@@ -138,7 +138,7 @@ async function fetchMonthlyQuota(config) {
   const url = `${baseUrl}/v1/dashboard/billing/subscription`;
 
   try {
-    const response = await fetch(url, {
+    const response = await net.fetch(url, {
       headers: {
         Authorization: `Bearer ${config.api_key}`,
         'Content-Type': 'application/json',
@@ -187,7 +187,7 @@ async function fetchOpenAIUsage(config) {
 
   const { monthly_quota: monthlyQuota, quota_source: quotaSource } = await fetchMonthlyQuota(config);
 
-  const response = await fetch(usageUrl, {
+  const response = await net.fetch(usageUrl, {
     headers: {
       Authorization: `Bearer ${config.api_key}`,
       'Content-Type': 'application/json',
