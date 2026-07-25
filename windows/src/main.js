@@ -23,6 +23,7 @@ const els = {
   monthlyQuotaInput: document.getElementById('monthlyQuotaInput'),
   pricePer1mInput: document.getElementById('pricePer1mInput'),
   providerInput: document.getElementById('providerInput'),
+  proxyInput: document.getElementById('proxyInput'),
   saveSettings: document.getElementById('saveSettings'),
   cancelSettings: document.getElementById('cancelSettings'),
 };
@@ -132,6 +133,7 @@ async function openSettings() {
   els.providerInput.value = config.provider || 'mock';
   els.pricePer1mInput.value = config.price_per_1m_tokens ?? 5.0;
   els.monthlyQuotaInput.value = config.monthly_quota || 150000000;
+  els.proxyInput.value = config.proxy_url || '';
   api.resizeWindow(SETTINGS_WIDTH, SETTINGS_HEIGHT);
   els.settingsPanel.classList.add('open');
 }
@@ -150,6 +152,7 @@ async function saveSettings() {
     provider: els.providerInput.value,
     price_per_1m_tokens: Number(els.pricePer1mInput.value),
     monthly_quota: Number(els.monthlyQuotaInput.value),
+    proxy_url: els.proxyInput.value.trim(),
   };
   await api.setConfig(config);
   closeSettings();

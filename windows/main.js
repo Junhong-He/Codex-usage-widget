@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -13,17 +13,41 @@ function defaultConfig() {
     monthly_quota: 150_000_000,
     price_per_1m_tokens: 5.0,
     provider: 'mock',
+    proxy_url: '',
   };
 }
 
 function logToFile(...args) {
   try {
-    const line = args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+    const line = args.map((a) => {
+      if (a instanceof Error) return a.stack || a.message || String(a);
+      if (typeof a === 'object') return JSON.stringify(a);
+      return String(a);
+    }).join(' ');
     const logPath = path.join(CONFIG_DIR, 'app.log');
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
     fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${line}\n`);
   } catch (err) {
     console.error('Failed to write log:', err);
+  }
+}
+
+// Configure the network proxy for Electron's fetch / Electron's requests.
+function applyProxy(config) {
+  try {
+    const url = (config.proxy_url || '').trim();
+    if (url) {
+      session.defaultSession
+        .setProxy({ proxyRules: url })
+        .catch((e) => logToFile('setProxy(manual) failed:', e));
+    } else {
+      // Falls back to the system proxy (Windows: IE / system proxy settings).
+      session.defaultSession
+        .setProxy({ mode: 'system' })
+        .catch((e) => logToFile('setProxy(system) failed:', e));
+    }
+  } catch (err) {
+    logToFile('applyProxy error:', err);
   }
 }
 
@@ -224,6 +248,9 @@ async function getUsage() {
 let mainWindow;
 
 function createWindow() {
+  const config = readConfig();
+  applyProxy(config);
+
   const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
   const winWidth = 380;
   const winHeight = 230;
@@ -276,6 +303,7 @@ ipcMain.handle('get-usage', async () => {
 ipcMain.handle('get-config', readConfig);
 ipcMain.handle('set-config', (_event, config) => {
   writeConfig(config);
+  applyProxy(config);
 });
 ipcMain.handle('config-dir', () => CONFIG_DIR);
 ipcMain.handle('move-window', (_event, dx, dy) => {
