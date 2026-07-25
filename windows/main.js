@@ -134,39 +134,10 @@ function buildSnapshot(tokensToday, tokensWeek, recentDays, monthlyQuota, quotaS
 }
 
 async function fetchMonthlyQuota(config) {
-  const baseUrl = (config.base_url || 'https://api.openai.com').replace(/\/$/, '');
-  const url = `${baseUrl}/v1/dashboard/billing/subscription`;
-
-  try {
-    const response = await net.fetch(url, {
-      headers: {
-        Authorization: `Bearer ${config.api_key}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      logToFile('Subscription fetch failed:', response.status, await response.text().catch(() => ''));
-      return { monthly_quota: config.monthly_quota, quota_source: 'manual' };
-    }
-
-    const data = await response.json();
-    const dollarLimit =
-      (typeof data.system_hard_limit_usd === 'number' ? data.system_hard_limit_usd : undefined) ??
-      (typeof data.hard_limit_usd === 'number' ? data.hard_limit_usd : undefined) ??
-      0;
-
-    if (dollarLimit <= 0) {
-      return { monthly_quota: config.monthly_quota, quota_source: 'manual' };
-    }
-
-    const pricePerToken = (config.price_per_1m_tokens || 5.0) / 1_000_000;
-    const tokens = Math.round(dollarLimit / pricePerToken);
-    return { monthly_quota: tokens, quota_source: 'subscription' };
-  } catch (err) {
-    logToFile('Failed to fetch subscription quota:', err);
-    return { monthly_quota: config.monthly_quota, quota_source: 'manual' };
-  }
+  // The OpenAI subscription/hard-limit endpoint (/dashboard/billing/subscription)
+  // only accepts a browser session key, NOT an API secret key, so it cannot be
+  // fetched here. We fall back to the user-configured monthly quota instead.
+  return { monthly_quota: config.monthly_quota || 150_000_000, quota_source: 'manual' };
 }
 
 function formatDate(d) {
@@ -183,7 +154,9 @@ async function fetchOpenAIUsage(config) {
   const baseUrl = (config.base_url || 'https://api.openai.com').replace(/\/$/, '');
   const today = formatDate(new Date());
   const startDate = dateDaysAgo(13);
-  const usageUrl = `${baseUrl}/v1/dashboard/billing/usage?start_date=${startDate}&end_date=${today}`;
+  // The official /v1/usage endpoint accepts an API secret key (unlike the
+  // dashboard billing endpoints). It returns daily usage in USD cents.
+  const usageUrl = `${baseUrl}/v1/usage?start_date=${startDate}&end_date=${today}`;
 
   const { monthly_quota: monthlyQuota, quota_source: quotaSource } = await fetchMonthlyQuota(config);
 
@@ -201,27 +174,30 @@ async function fetchOpenAIUsage(config) {
   }
 
   const data = await response.json();
-  const dailyCosts = Array.isArray(data.data) ? data.data : [];
+  // Response shape: { object: "usage", data: [{ date: "YYYY-MM-DD", usage: <cents> }], total_usage }
   const pricePerToken = (config.price_per_1m_tokens || 5.0) / 1_000_000;
-
   const dayMap = {};
-  dailyCosts.forEach((item) => {
-    const date = formatDate(new Date(item.timestamp * 1000));
-    dayMap[date] = (dayMap[date] || 0) + (item.cost || 0);
-  });
-
-  const costToday = dayMap[today] || 0;
-  const tokensToday = Math.round(costToday / pricePerToken);
-
-  let costWeek = 0;
-  for (let i = 0; i < 7; i++) {
-    costWeek += dayMap[dateDaysAgo(i)] || 0;
+  if (Array.isArray(data.data)) {
+    data.data.forEach((item) => {
+      const date = item.date || formatDate(new Date((item.aggregation_timestamp || 0) * 1000));
+      const cents = Number(item.usage || 0); // usage is in USD cents
+      dayMap[date] = (dayMap[date] || 0) + cents;
+    });
   }
-  const tokensWeek = Math.round(costWeek / pricePerToken);
+
+  // Convert USD cents -> tokens via the configured price per 1M tokens.
+  const centsToday = dayMap[today] || 0;
+  const tokensToday = Math.round((centsToday / 100) / pricePerToken);
+
+  let centsWeek = 0;
+  for (let i = 0; i < 7; i++) {
+    centsWeek += dayMap[dateDaysAgo(i)] || 0;
+  }
+  const tokensWeek = Math.round((centsWeek / 100) / pricePerToken);
 
   const recentDays = [];
   for (let i = 13; i >= 0; i--) {
-    recentDays.push(Math.round((dayMap[dateDaysAgo(i)] || 0) / pricePerToken));
+    recentDays.push(Math.round((dayMap[dateDaysAgo(i)] || 0) / 100 / pricePerToken));
   }
 
   return buildSnapshot(tokensToday, tokensWeek, recentDays, monthlyQuota, quotaSource);

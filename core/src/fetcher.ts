@@ -26,11 +26,13 @@ async function fetchOpenAIUsage(config: FetcherConfig): Promise<CodexUsageSnapsh
   const today = formatDate(new Date());
   const startDate = dateDaysAgo(13);
 
-  // Resolve monthly quota from the subscription plan when possible.
+  // The subscription/hard-limit endpoint only accepts a browser session key,
+  // not an API secret key, so we fall back to the configured monthly quota.
   const { monthlyQuota, quotaSource } = await fetchMonthlyQuota(config);
 
-  // The dashboard billing usage endpoint returns daily costs in USD for a date range.
-  const url = `${baseUrl}/v1/dashboard/billing/usage?start_date=${startDate}&end_date=${today}`;
+  // The official /v1/usage endpoint accepts an API secret key. It returns daily
+  // usage in USD cents ({ object: "usage", data: [{ date, usage }] }).
+  const url = `${baseUrl}/v1/usage?start_date=${startDate}&end_date=${today}`;
 
   const response = await fetch(url, {
     headers: {
@@ -45,68 +47,40 @@ async function fetchOpenAIUsage(config: FetcherConfig): Promise<CodexUsageSnapsh
   }
 
   const data: any = await response.json();
-  const dailyCosts = Array.isArray(data.data) ? data.data : [];
   const pricePerToken = (config.pricePer1mTokens || 5.0) / 1_000_000;
-
   const dayMap: Record<string, number> = {};
-  dailyCosts.forEach((item: any) => {
-    const date = formatDate(new Date(item.timestamp * 1000));
-    dayMap[date] = (dayMap[date] || 0) + (item.cost || 0);
-  });
-
-  const costToday = dayMap[today] || 0;
-  const tokensToday = Math.round(costToday / pricePerToken);
-
-  let costWeek = 0;
-  for (let i = 0; i < 7; i++) {
-    costWeek += dayMap[dateDaysAgo(i)] || 0;
+  if (Array.isArray(data.data)) {
+    data.data.forEach((item: any) => {
+      const date = item.date || formatDate(new Date((item.aggregation_timestamp || 0) * 1000));
+      const cents = Number(item.usage || 0); // usage is in USD cents
+      dayMap[date] = (dayMap[date] || 0) + cents;
+    });
   }
-  const tokensWeek = Math.round(costWeek / pricePerToken);
+
+  const centsToday = dayMap[today] || 0;
+  const tokensToday = Math.round((centsToday / 100) / pricePerToken);
+
+  let centsWeek = 0;
+  for (let i = 0; i < 7; i++) {
+    centsWeek += dayMap[dateDaysAgo(i)] || 0;
+  }
+  const tokensWeek = Math.round((centsWeek / 100) / pricePerToken);
 
   const recentDays: number[] = [];
   for (let i = 13; i >= 0; i--) {
-    recentDays.push(Math.round((dayMap[dateDaysAgo(i)] || 0) / pricePerToken));
+    recentDays.push(Math.round((dayMap[dateDaysAgo(i)] || 0) / 100 / pricePerToken));
   }
 
   return buildSnapshot(tokensToday, tokensWeek, recentDays, config, monthlyQuota, quotaSource);
 }
 
 /**
- * Fetch the user's subscription dollar limit and convert it to a token quota.
- * Falls back to the configured monthlyQuota if the request fails.
+ * The subscription/hard-limit endpoint (/dashboard/billing/subscription) only
+ * accepts a browser session key, NOT an API secret key, so it cannot be fetched
+ * here. We fall back to the configured monthlyQuota.
  */
 async function fetchMonthlyQuota(config: FetcherConfig): Promise<{ monthlyQuota: number; quotaSource: "subscription" | "manual" }> {
-  const baseUrl = (config.baseUrl || "https://api.openai.com").replace(/\/$/, "");
-  const url = `${baseUrl}/v1/dashboard/billing/subscription`;
-
-  try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      return { monthlyQuota: config.monthlyQuota, quotaSource: "manual" };
-    }
-
-    const data: any = await response.json();
-    const dollarLimit =
-      (typeof data.system_hard_limit_usd === "number" ? data.system_hard_limit_usd : undefined) ??
-      (typeof data.hard_limit_usd === "number" ? data.hard_limit_usd : undefined) ??
-      0;
-
-    if (dollarLimit <= 0) {
-      return { monthlyQuota: config.monthlyQuota, quotaSource: "manual" };
-    }
-
-    const pricePerToken = (config.pricePer1mTokens || 5.0) / 1_000_000;
-    const tokens = Math.round(dollarLimit / pricePerToken);
-    return { monthlyQuota: tokens, quotaSource: "subscription" };
-  } catch {
-    return { monthlyQuota: config.monthlyQuota, quotaSource: "manual" };
-  }
+  return { monthlyQuota: config.monthlyQuota, quotaSource: "manual" };
 }
 
 function mockSnapshot(config: FetcherConfig): CodexUsageSnapshot {

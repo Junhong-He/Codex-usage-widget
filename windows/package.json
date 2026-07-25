@@ -1,6 +1,6 @@
 {
   "name": "codex-usage-windows-widget",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "description": "Windows desktop widget for Codex quota monitoring.",
   "author": "Junhong-He",
   "private": true,
