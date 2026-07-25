@@ -11,16 +11,26 @@ export async function fetchUsage(config: FetcherConfig): Promise<CodexUsageSnaps
   return fetchOpenAIUsage(config);
 }
 
+function formatDate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
+
+function dateDaysAgo(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return formatDate(d);
+}
+
 async function fetchOpenAIUsage(config: FetcherConfig): Promise<CodexUsageSnapshot> {
   const baseUrl = (config.baseUrl || "https://api.openai.com").replace(/\/$/, "");
-  const today = new Date().toISOString().split("T")[0];
+  const today = formatDate(new Date());
+  const startDate = dateDaysAgo(13);
 
   // Resolve monthly quota from the subscription plan when possible.
   const { monthlyQuota, quotaSource } = await fetchMonthlyQuota(config);
 
-  // OpenAI usage endpoint returns per-day billing/usage in cents.
-  // Map it to tokens with a configurable heuristic (1 token ≈ $0.000005 for GPT-4o).
-  const url = `${baseUrl}/v1/usage?date=${today}`;
+  // The dashboard billing usage endpoint returns daily costs in USD for a date range.
+  const url = `${baseUrl}/v1/dashboard/billing/usage?start_date=${startDate}&end_date=${today}`;
 
   const response = await fetch(url, {
     headers: {
@@ -30,19 +40,33 @@ async function fetchOpenAIUsage(config: FetcherConfig): Promise<CodexUsageSnapsh
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch usage: ${response.status} ${response.statusText}`);
+    const text = await response.text().catch(() => "");
+    throw new Error(`Failed to fetch usage: ${response.status} ${response.statusText} ${text}`);
   }
 
   const data: any = await response.json();
-  const totalCents = data.total_usage ?? 0;
-  const tokensToday = Math.round(totalCents / 0.000005 / 100);
+  const dailyCosts = Array.isArray(data.data) ? data.data : [];
+  const pricePerToken = (config.pricePer1mTokens || 5.0) / 1_000_000;
 
-  // For weekly usage, sum the last 7 days if the endpoint supports a range.
-  // Fallback: estimate weekly from today's burn rate.
-  const tokensWeek = Math.round(tokensToday * 2.5);
+  const dayMap: Record<string, number> = {};
+  dailyCosts.forEach((item: any) => {
+    const date = formatDate(new Date(item.timestamp * 1000));
+    dayMap[date] = (dayMap[date] || 0) + (item.cost || 0);
+  });
 
-  // Fallback recent days: generate a plausible distribution ending with today.
-  const recentDays = generateRecentDays(tokensToday, 14);
+  const costToday = dayMap[today] || 0;
+  const tokensToday = Math.round(costToday / pricePerToken);
+
+  let costWeek = 0;
+  for (let i = 0; i < 7; i++) {
+    costWeek += dayMap[dateDaysAgo(i)] || 0;
+  }
+  const tokensWeek = Math.round(costWeek / pricePerToken);
+
+  const recentDays: number[] = [];
+  for (let i = 13; i >= 0; i--) {
+    recentDays.push(Math.round((dayMap[dateDaysAgo(i)] || 0) / pricePerToken));
+  }
 
   return buildSnapshot(tokensToday, tokensWeek, recentDays, config, monthlyQuota, quotaSource);
 }
@@ -53,7 +77,7 @@ async function fetchOpenAIUsage(config: FetcherConfig): Promise<CodexUsageSnapsh
  */
 async function fetchMonthlyQuota(config: FetcherConfig): Promise<{ monthlyQuota: number; quotaSource: "subscription" | "manual" }> {
   const baseUrl = (config.baseUrl || "https://api.openai.com").replace(/\/$/, "");
-  const url = `${baseUrl}/dashboard/billing/subscription`;
+  const url = `${baseUrl}/v1/dashboard/billing/subscription`;
 
   try {
     const response = await fetch(url, {

@@ -16,6 +16,17 @@ function defaultConfig() {
   };
 }
 
+function logToFile(...args) {
+  try {
+    const line = args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+    const logPath = path.join(CONFIG_DIR, 'app.log');
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    fs.appendFileSync(logPath, `[${new Date().toISOString()}] ${line}\n`);
+  } catch (err) {
+    console.error('Failed to write log:', err);
+  }
+}
+
 function readConfig() {
   try {
     if (!fs.existsSync(CONFIG_PATH)) {
@@ -100,7 +111,7 @@ function buildSnapshot(tokensToday, tokensWeek, recentDays, monthlyQuota, quotaS
 
 async function fetchMonthlyQuota(config) {
   const baseUrl = (config.base_url || 'https://api.openai.com').replace(/\/$/, '');
-  const url = `${baseUrl}/dashboard/billing/subscription`;
+  const url = `${baseUrl}/v1/dashboard/billing/subscription`;
 
   try {
     const response = await fetch(url, {
@@ -111,6 +122,7 @@ async function fetchMonthlyQuota(config) {
     });
 
     if (!response.ok) {
+      logToFile('Subscription fetch failed:', response.status, await response.text().catch(() => ''));
       return { monthly_quota: config.monthly_quota, quota_source: 'manual' };
     }
 
@@ -128,15 +140,26 @@ async function fetchMonthlyQuota(config) {
     const tokens = Math.round(dollarLimit / pricePerToken);
     return { monthly_quota: tokens, quota_source: 'subscription' };
   } catch (err) {
-    console.error('Failed to fetch subscription quota:', err);
+    logToFile('Failed to fetch subscription quota:', err);
     return { monthly_quota: config.monthly_quota, quota_source: 'manual' };
   }
 }
 
+function formatDate(d) {
+  return d.toISOString().split('T')[0];
+}
+
+function dateDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  return formatDate(d);
+}
+
 async function fetchOpenAIUsage(config) {
-  const today = new Date().toISOString().split('T')[0];
   const baseUrl = (config.base_url || 'https://api.openai.com').replace(/\/$/, '');
-  const usageUrl = `${baseUrl}/v1/usage?date=${today}`;
+  const today = formatDate(new Date());
+  const startDate = dateDaysAgo(13);
+  const usageUrl = `${baseUrl}/v1/dashboard/billing/usage?start_date=${startDate}&end_date=${today}`;
 
   const { monthly_quota: monthlyQuota, quota_source: quotaSource } = await fetchMonthlyQuota(config);
 
@@ -148,14 +171,35 @@ async function fetchOpenAIUsage(config) {
   });
 
   if (!response.ok) {
+    const text = await response.text().catch(() => '');
+    logToFile('Usage fetch failed:', response.status, text);
     throw new Error(`OpenAI API error: ${response.status}`);
   }
 
   const data = await response.json();
-  const totalCents = data.total_usage ?? 0;
-  const tokensToday = Math.round(totalCents / 0.000005 / 100);
-  const tokensWeek = Math.round(tokensToday * 2.5);
-  const recentDays = generateRecentDays(tokensToday, 14);
+  const dailyCosts = Array.isArray(data.data) ? data.data : [];
+  const pricePerToken = (config.price_per_1m_tokens || 5.0) / 1_000_000;
+
+  const dayMap = {};
+  dailyCosts.forEach((item) => {
+    const date = formatDate(new Date(item.timestamp * 1000));
+    dayMap[date] = (dayMap[date] || 0) + (item.cost || 0);
+  });
+
+  const costToday = dayMap[today] || 0;
+  const tokensToday = Math.round(costToday / pricePerToken);
+
+  let costWeek = 0;
+  for (let i = 0; i < 7; i++) {
+    costWeek += dayMap[dateDaysAgo(i)] || 0;
+  }
+  const tokensWeek = Math.round(costWeek / pricePerToken);
+
+  const recentDays = [];
+  for (let i = 13; i >= 0; i--) {
+    recentDays.push(Math.round((dayMap[dateDaysAgo(i)] || 0) / pricePerToken));
+  }
+
   return buildSnapshot(tokensToday, tokensWeek, recentDays, monthlyQuota, quotaSource);
 }
 
@@ -221,7 +265,14 @@ app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });
 
-ipcMain.handle('get-usage', getUsage);
+ipcMain.handle('get-usage', async () => {
+  try {
+    return await getUsage();
+  } catch (err) {
+    logToFile('get-usage error:', err);
+    throw err;
+  }
+});
 ipcMain.handle('get-config', readConfig);
 ipcMain.handle('set-config', (_event, config) => {
   writeConfig(config);
